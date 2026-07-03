@@ -1,0 +1,21 @@
+---
+title: "The yield agent"
+description: "A bot that keeps the pool earning the most, automatically."
+---
+
+To make the prizes as big as possible, Goaly runs a small **robot wallet** — built on Tether's
+**WDK** (Wallet Development Kit).
+
+It does one job, over and over, with no human involved:
+
+- **Looks everywhere** — it checks every Morpho vault, on every chain, in USDT and USDC.
+- **Moves the money to the best one** — if a safer vault pays more, it moves the pool's funds there
+  (swapping USDT ↔ USDC on-chain if needed), keeping every stake worth exactly the same.
+- **Signs for itself** — it's a real self-custodial wallet, so it approves its own moves.
+
+The result: the pool always earns close to the best available rate, which means bigger prizes — with
+nobody having to babysit it.
+
+<Note>
+  You can watch what the agent is doing live at [api.goaly.fun/agent](https://api.goaly.fun/agent).
+</Note>

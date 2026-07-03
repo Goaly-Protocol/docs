@@ -1,0 +1,23 @@
+---
+title: "API"
+description: "Read matches, odds, standings, and the agent over HTTP."
+---
+
+Everything the app shows is available over a simple HTTP API at **`https://api.goaly.fun`**.
+
+<Card title="Full reference" icon="code" href="https://api.goaly.fun/docs">
+  Interactive OpenAPI docs — every endpoint and field.
+</Card>
+
+Handy endpoints:
+
+| Path         | What you get                          |
+| ------------ | ------------------------------------- |
+| `/matches`   | Matches with live odds                |
+| `/standings` | Group standings                       |
+| `/bracket`   | Knockout bracket                      |
+| `/agent`     | What the yield agent is doing         |
+
+```bash
+curl https://api.goaly.fun/matches
+```

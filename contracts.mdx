@@ -1,0 +1,24 @@
+---
+title: "Contracts"
+description: "The on-chain contract behind Goaly."
+---
+
+Goaly is a single contract, **`GoalyPool`**, on **Arbitrum One**. It handles both the predictions and
+the yield — there's no receipt token to manage.
+
+| Contract      | Address                                                                                                                |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **GoalyPool** | [`0x009b57aefAC6b10dF71a49982Eb3f678D2b4966C`](https://arbiscan.io/address/0x009b57aefAC6b10dF71a49982Eb3f678D2b4966C) |
+| USDT0         | [`0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9`](https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9) |
+
+Two functions do everything a player needs:
+
+```solidity
+// Predict: stake a stablecoin on an outcome.
+function placePrediction(bytes32 marketId, Outcome outcome, IERC20 token, uint256 amount, uint256 minStake);
+
+// Claim: get your stake back (+ prize), in the token you choose.
+function claim(bytes32 marketId, IERC20 outToken, uint256 minOut);
+```
+
+Source and tests live in the [monorepo](https://github.com/Goaly-Protocol/goaly) under `packages/contracts`.
