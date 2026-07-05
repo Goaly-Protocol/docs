@@ -21,7 +21,8 @@
         "group": "How it works",
         "pages": [
           "how-it-works",
-          "yield-agent"
+          "yield-agent",
+          "wdk"
         ]
       },
       {

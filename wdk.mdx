@@ -1,0 +1,140 @@
+---
+title: "How Goaly uses WDK"
+description: "Both the player and the yield agent run on self-custodial Tether WDK wallets."
+---
+
+Goaly is built on **Tether's WDK** (Wallet Development Kit). Not just for logins — WDK is the wallet
+layer for **both sides** of the protocol:
+
+- **The player** gets an embedded, self-custodial WDK wallet with **no seed phrase to manage**.
+- **The yield agent** is an autonomous **WDK agent wallet** that signs its own on-chain moves.
+
+Every stake, prize, claim, and rebalance is denominated in **USD₮0** — Tether's omnichain USDT on
+Arbitrum (the app labels it "USDT" to users). WDK is what creates these wallets, holds their keys,
+and signs their transactions.
+
+<Info>
+  The player wallet is created with `@tetherto/wdk-wallet-evm` in the dApp; the agent wallet uses the
+  same WDK primitives on the server through Goaly's thin `@goaly/plugin-wdk` wrapper. Same kit, both
+  sides.
+</Info>
+
+## The player's embedded wallet
+
+Every player gets a **self-custodial** wallet whose keys live **on their device** — created and
+signed with WDK. There is **no seed phrase** to write down, screenshot, or lose.
+
+The trick: instead of generating a random seed, Goaly **derives the wallet deterministically from a
+sign-in signature**, so it always restores from the wallet the user already has.
+
+<Steps>
+  <Step title="Sign in">
+    The user connects an external wallet and signs a **fixed EIP-712 "sign in" message** (no nonce,
+    no timestamp). Because the payload never changes, the same wallet always produces the same
+    signature.
+  </Step>
+  <Step title="Derive a seed">
+    Goaly hashes that signature (`keccak256`) into 32 bytes of entropy and expands it into a 24-word
+    BIP-39 mnemonic. This never leaves the browser and is never shown to the user.
+  </Step>
+  <Step title="Create the WDK account">
+    WDK's `WalletManagerEvm` turns the mnemonic into an EVM account on the standard BIP-44 path
+    `m/44'/60'/0'/0/0` — the player's embedded Goaly account.
+  </Step>
+  <Step title="Play">
+    The player **stakes**, **claims**, and **sends/tips USDT** straight from this WDK wallet. WDK
+    handles account creation, address derivation, and signing.
+  </Step>
+</Steps>
+
+```ts
+// apps/app/src/lib/wdk-wallet-engine.ts — derive the WDK account (runs only in the browser)
+const { default: WalletManagerEvm } = await import("@tetherto/wdk-wallet-evm");
+const manager = new WalletManagerEvm(mnemonic);       // mnemonic from the sign-in signature
+const account = await manager.getAccount(0);          // BIP-44 m/44'/60'/0'/0/0
+const address = await account.getAddress();           // the player's embedded Goaly address
+```
+
+<Note>
+  Because the account is derived from a **deterministic** signature, it is fully recoverable: if a
+  device is wiped, the user reconnects the same external wallet, re-signs, and WDK re-derives the
+  **exact same** address. Nothing to back up, nothing to leak.
+</Note>
+
+## The autonomous yield agent wallet
+
+To make prizes as big as possible, Goaly runs an autonomous **yield agent** — and it runs on its own
+**WDK wallet** (`WdkWallet` / `KeyWallet`, both implementing the same `WalletProvider` interface from
+`@goaly/plugin-wdk`). This is "agent wallet meets autonomous finance," built on WDK primitives:
+
+- **Reads the market** — it polls the live APY of each **Morpho** USD₮0/USDC vault and where the
+  pooled principal currently sits.
+- **Decides** — it computes the best risk-adjusted allocation across the vault's **whitelisted**
+  strategies.
+- **Signs for itself** — using its WDK wallet, it can propose and sign its own `rebalance()` call and
+  settle it on-chain in USD₮0. No human has to co-sign each move.
+
+<Note>
+  The agent is currently **advisory**: it surfaces and signs a recommended allocation, but actually
+  moving funds stays governance-gated for launch. You can watch it decide live at
+  [api.goaly.fun/agent](https://api.goaly.fun/agent).
+</Note>
+
+## Safety: separation, roles, and recovery
+
+WDK gives Goaly clean self-custody; the protocol's design keeps that power tightly boxed.
+
+**Clean separation.** App and agent *logic* is fully separate from wallet *execution*. Both wallets
+implement one small `WalletProvider` interface (`createWallet` / `signMessage` / `send` /
+`sendTransaction`), so signing is the only thing the wallet ever does — the business logic never
+touches keys.
+
+**Least-privilege on-chain roles.** Even a fully autonomous agent can't run off with the money,
+because the on-chain roles are minimal:
+
+| Role                       | May do                                                                        | May **not** do                                             |
+| -------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **AGENT** (yield wallet)   | `rebalance` between the buffer and **whitelisted** strategies                  | Touch user principal, or move funds to an EOA / cross-chain |
+| **ORACLE / PROPOSER**      | Open and settle markets                                                        | Move funds                                                 |
+| **GUARDIAN**               | Pause the protocol                                                             | Move funds                                                 |
+| **GOVERNANCE** (admin)     | Upgrade / configure — a **Timelock + Safe**                                    | —                                                          |
+
+<Warning>
+  The **AGENT** role can only shuffle USD₮0 between the vault's liquidity buffer and its whitelisted
+  strategies. It can **never** withdraw user principal, send to an arbitrary address, or bridge funds
+  cross-chain automatically. Cross-chain surplus movement is a separate, governance-controlled path.
+</Warning>
+
+**Recovery without a seed phrase.** Because the player wallet is re-derived from the deterministic
+sign-in signature, "recovery" is just **reconnect + re-sign** — there is no seed phrase that can be
+lost or phished.
+
+<Info>
+  **Roadmap:** WDK's account-abstraction support opens the door to **gasless / sponsored**
+  predictions and claims, so a player never needs to hold ETH for gas. Planned, not yet shipped.
+</Info>
+
+## WDK primitives used
+
+<CardGroup cols={3}>
+  <Card title="Wallet creation" icon="wallet">
+    Deriving each account from a seed.
+  </Card>
+  <Card title="Accounts" icon="address-card">
+    BIP-44 accounts + addresses.
+  </Card>
+  <Card title="Signing" icon="signature">
+    Signing messages and transactions.
+  </Card>
+</CardGroup>
+
+| WDK primitive       | What it does                                            | Where Goaly uses it                                                                 |
+| ------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Wallet creation** | `new WalletManagerEvm(seed)` from a BIP-39 seed          | Player wallet in `apps/app` (seed from the sign-in signature); agent wallet on the server |
+| **Accounts**        | `getAccount(index)` → `getAddress()` on BIP-44 `m/44'/60'/0'/0/0` | The player's embedded Goaly address; the agent's own address                        |
+| **Signing**         | `account.sign(...)` / transfer / `sendTransaction`       | Player: stake, claim, send/tip USDT. Agent: sign & settle `rebalance()` on-chain     |
+
+<Card title="See the wallet wrapper" icon="github" href="https://github.com/Goaly-Protocol/goaly">
+  `packages/plugin-wdk` — `WdkWallet` (Tether WDK, on-device seed), `KeyWallet` (server signer), and
+  `MockWallet` (deterministic dev stand-in), all behind one `WalletProvider` interface.
+</Card>
