@@ -4,18 +4,27 @@ description: "A bot that keeps the pool earning the most, automatically."
 ---
 
 To make the prizes as big as possible, Goaly runs a small **robot wallet** — built on Tether's
-**WDK** (Wallet Development Kit).
+**WDK** (Wallet Development Kit), using the real `@tetherto/wdk-wallet-evm` package.
 
-It does one job, over and over, with no human involved:
+It does one job, over and over:
 
-- **Looks everywhere** — it checks every Morpho vault, on every chain, in USDT and USDC.
-- **Moves the money to the best one** — if a safer vault pays more, it moves the pool's funds there
-  (swapping USDT ↔ USDC on-chain if needed), keeping every stake worth exactly the same.
-- **Signs for itself** — it's a real self-custodial wallet, so it approves its own moves.
+- **Reads the rates** — it checks the live APY of each Morpho vault and looks at where the vault's
+  money is currently allocated.
+- **Picks the best allocation** — it computes the best risk-adjusted split across the vault's
+  whitelisted strategies, swapping USDT ↔ USDC on-chain when a USDC vault pays more, while every
+  stake stays worth exactly the same.
+- **Signs for itself** — it runs on a real self-custodial WDK wallet, so it can propose and sign its
+  own `rebalance()` moves.
 
-The result: the pool always earns close to the best available rate, which means bigger prizes — with
+By design the agent is tightly boxed in: its on-chain **AGENT** role can only shuffle funds between
+the vault's liquidity buffer and its whitelisted strategies — it can **never** move money to an
+outside address.
+
+The result: the vault always earns close to the best available rate, which means bigger prizes — with
 nobody having to babysit it.
 
 <Note>
-  You can watch what the agent is doing live at [api.goaly.fun/agent](https://api.goaly.fun/agent).
+  The agent is currently **advisory**: it surfaces the recommended allocation, but actually moving the
+  funds is governance-gated. You can watch what it's deciding live at
+  [api.goaly.fun/agent](https://api.goaly.fun/agent).
 </Note>

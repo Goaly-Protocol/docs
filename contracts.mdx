@@ -1,24 +1,87 @@
 ---
 title: "Contracts"
-description: "The on-chain contract behind Goaly."
+description: "The layered protocol behind Goaly, deployed on Arbitrum One."
 ---
 
-Goaly is a single contract, **`GoalyPool`**, on **Arbitrum One**. It handles both the predictions and
-the yield — there's no receipt token to manage.
+Goaly is a **layered protocol** on **Arbitrum One** (chainId `42161`). A thin prediction layer sits on
+top of an ERC-4626 yield vault, which spreads principal across pluggable strategies. Settlement and
+cross-chain surplus each live in their own contract. Everything below is deployed and
+verified on [Arbiscan](https://arbiscan.io).
 
-| Contract      | Address                                                                                                                |
-| ------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **GoalyPool** | [`0x009b57aefAC6b10dF71a49982Eb3f678D2b4966C`](https://arbiscan.io/address/0x009b57aefAC6b10dF71a49982Eb3f678D2b4966C) |
-| USDT0         | [`0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9`](https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9) |
+## Contracts
 
-Two functions do everything a player needs:
+| Contract               | Address                                                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **GoalyMarkets**       | [`0xFAcaD2Cbc3b6320239389aD5c2F597DeE95f1fd3`](https://arbiscan.io/address/0xFAcaD2Cbc3b6320239389aD5c2F597DeE95f1fd3) |
+| **GoalyVault**         | [`0xFe424b5b85C742C15CCB09d62873bE72577CD7Ef`](https://arbiscan.io/address/0xFe424b5b85C742C15CCB09d62873bE72577CD7Ef) |
+| **MorphoStrategy**     | [`0x6951adCCd2106Bf364D62A1CC328070FC49609eA`](https://arbiscan.io/address/0x6951adCCd2106Bf364D62A1CC328070FC49609eA) |
+| **MorphoSwapStrategy** | [`0xD12c112DA7D19266c5cBB9A9bde4Ee9e77D5393D`](https://arbiscan.io/address/0xD12c112DA7D19266c5cBB9A9bde4Ee9e77D5393D) |
+| **GoalySettlement**    | [`0xC03BB9526D6F0308d8Ba0831e85f93db3E45e201`](https://arbiscan.io/address/0xC03BB9526D6F0308d8Ba0831e85f93db3E45e201) |
+| **ReserveManager**     | [`0xCe34457F70733191126726c1D1EeEb52Bcd20051`](https://arbiscan.io/address/0xCe34457F70733191126726c1D1EeEb52Bcd20051) |
+| **AllocationLib**      | [`0x00d25e8c7ab0e42e29e21ed40592d10b2389ded2`](https://arbiscan.io/address/0x00d25e8c7ab0e42e29e21ed40592d10b2389ded2) |
+| USD₮0 (stake token)    | [`0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9`](https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9) |
+
+The stake token is **USD₮0** — Tether's omnichain USDT on Arbitrum (the app labels it "USDT" to
+users). Players always stake and withdraw USD₮0; internally the yield may be earned in USD₮0 **or**
+USDC.
+
+- **GoalyMarkets** — the no-loss prediction layer. Players `predict(marketId, outcome, amount)`
+  staking USD₮0; every stake is deposited into GoalyVault to earn yield. Winners split a prize funded
+  purely by that yield, and `claim(marketId)` returns the stake plus any prize — always in USD₮0. The
+  protocol fee is taken from the **prize only**, never from the principal.
+- **GoalyVault** — an ERC-4626 (UUPS) vault that pools principal and allocates it across whitelisted
+  strategies while keeping a liquidity buffer for on-demand claims.
+- **MorphoStrategy** — a same-asset strategy that routes USD₮0 into a Morpho USD₮0 vault.
+- **MorphoSwapStrategy** — a cross-asset strategy that swaps USD₮0 ↔ USDC so the vault can also earn
+  in USDC Morpho vaults.
+- **GoalySettlement** — an optimistic settlement oracle. Results are proposed with a bond, finalize
+  after a dispute window if unchallenged, and escalate to governance if disputed — replacing a single
+  trusted oracle key.
+- **ReserveManager** — bridges **surplus only** (prize funds, never principal) cross-chain as USDC via
+  Circle **CCTP** (Wormhole-relayed). Principal never leaves Arbitrum.
+- **AllocationLib** — an external `delegatecall` library holding the vault's allocation logic, which
+  keeps the vault under 24 KB without the optimizer.
+
+## What a player calls
+
+Two functions cover the whole player flow, both on **GoalyMarkets**:
 
 ```solidity
-// Predict: stake a stablecoin on an outcome.
-function placePrediction(bytes32 marketId, Outcome outcome, IERC20 token, uint256 amount, uint256 minStake);
+// Predict: stake USD₮0 on an outcome. The stake is deposited into the vault to earn yield.
+function predict(bytes32 marketId, Outcome outcome, uint256 amount);
 
-// Claim: get your stake back (+ prize), in the token you choose.
-function claim(bytes32 marketId, IERC20 outToken, uint256 minOut);
+// Claim: reclaim your stake (always) plus your prize (if you won), paid in USD₮0.
+function claim(bytes32 marketId) returns (uint256 stakeReturned, uint256 prize);
 ```
 
-Source and tests live in the [monorepo](https://github.com/Goaly-Protocol/goaly) under `packages/contracts`.
+## No-loss is an on-chain invariant
+
+The vault only ever earns, so principal is always redeemable **1:1**. That guarantee isn't a policy —
+it's enforced on-chain by `GoalyMarkets.isSolvent()`:
+
+```solidity
+// The vault's position must always cover principal + prize reserve.
+function isSolvent() public view returns (bool) {
+    return vault.convertToAssets(vault.balanceOf(markets)) >= totalStaked + reserve;
+}
+```
+
+<Note>
+  Because a stake can never be worth less than it was deposited, a wrong prediction can only ever cost
+  you the yield you would have won — never your principal.
+</Note>
+
+## Roles
+
+Access follows least privilege. The protocol is UUPS-upgradeable, uses ERC-7201 namespaced storage,
+and is compiled **without the optimizer** for plain, auditable bytecode.
+
+| Role                    | May do                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| **AGENT**               | `allocate` / `rebalance` between the buffer and whitelisted strategies — never to an EOA    |
+| **ORACLE / PROPOSER**   | Open and settle markets                                                                     |
+| **GUARDIAN**            | Pause the protocol                                                                          |
+| **DEFAULT_ADMIN**       | Governance — a Timelock + Safe                                                              |
+
+Source and tests (Foundry — 19 tests including a fuzzed no-loss invariant) live in the
+[`Goaly-Protocol/contracts`](https://github.com/Goaly-Protocol/contracts) repo.
