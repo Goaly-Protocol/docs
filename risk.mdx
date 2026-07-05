@@ -1,0 +1,96 @@
+---
+title: "Risk Disclosure"
+description: "The real risks of using an on-chain, DeFi-backed prediction protocol."
+---
+
+_Effective date: **July 1, 2026**_
+
+Goaly is designed to be **no-loss**: your staked principal is meant to be returned to you in full.
+But "no-loss" protects you from a **wrong prediction** — it cannot remove the risks of using smart
+contracts, stablecoins, and DeFi. Please read this page before you stake.
+
+<Warning>
+  Using Goaly involves real risk to your funds. Only stake what you can afford to have locked, or in
+  a worst case lose, if an underlying protocol fails. **This is not financial advice.**
+</Warning>
+
+## "No-loss" is not risk-free
+
+The 1:1 return of your principal is enforced on-chain **as long as the vault and the protocols it
+relies on remain solvent and functioning**. "No-loss" depends on:
+
+- The **Goaly vault and its strategies** working as intended and staying solvent.
+- The **underlying yield protocol (Morpho)** and its markets not failing, being exploited, or
+  becoming illiquid.
+
+If any of these break, principal that is meant to be redeemable 1:1 could be delayed or impaired. The
+no-loss guarantee is an **on-chain invariant, not a promise that the underlying protocols can never
+fail**.
+
+## Smart-contract and exploit risk
+
+Goaly is software. Smart contracts may contain **bugs**, and they, or the protocols they integrate,
+may be **exploited or hacked**. An exploit could result in partial or total loss of funds. Audits and
+tests reduce but do not eliminate this risk.
+
+## Underlying protocol and yield risk
+
+Staked principal earns yield through **Morpho** lending markets. Those markets carry their own
+risks — bad debt, liquidation failures, illiquidity, oracle problems, or governance changes — that
+are **outside Goaly's control** and could affect the vault's value or the availability of your
+principal.
+
+## Stablecoin depeg risk
+
+Stakes and yield use stablecoins — **USD₮0** (Tether's omnichain USDT) and **USDC**. A stablecoin can
+**lose its peg** to the US dollar. If a stablecoin depegs, the value of your stake or prize could fall
+even though the token amount is unchanged.
+
+## You can win nothing
+
+<Note>
+  A prediction can win **nothing**. Prizes are funded **only by the yield** earned on pooled
+  principal. If your prediction is wrong — or if little yield accrued — you simply get your
+  **principal back** and no prize. You never lose your stake to a wrong call, but you are never
+  guaranteed a prize.
+</Note>
+
+## Gas and ETH on your embedded account
+
+Every transaction on Arbitrum requires **ETH for gas**, including on your **embedded wallet**. If your
+account has no ETH, you may be unable to predict, claim, or move funds until you fund it. Keeping a
+small ETH balance on the account is your responsibility.
+
+## Cross-chain and bridge risk
+
+Surplus (prize funds only, never principal) may move cross-chain using **LayerZero** and Circle
+**CCTP**. Bridges and cross-chain messaging carry additional risk — delays, failures, or exploits —
+that could affect surplus funds in transit.
+
+## Oracle and settlement risk
+
+Match results are settled through an **optimistic settlement** process (results are proposed, and
+finalize after a dispute window). Settlement could be **delayed, disputed, or — in an adversarial
+case — incorrect**, which may affect when or how prizes are distributed.
+
+## Regulatory uncertainty
+
+The legal treatment of prediction protocols, skill-based gaming, and digital assets is **evolving and
+varies by jurisdiction**. Future laws or enforcement could restrict or prohibit access to the Service
+where you live. You are responsible for ensuring your use is lawful (see the [Terms of Use](/terms)).
+
+## Self-custody risk
+
+Your wallet is **self-custodial** — keys are derived on your device and Goaly never holds them. If you
+**lose access** to your device, signature, or credentials, **you lose access to your funds**, and
+Goaly **cannot recover them**. Safeguarding access is entirely your responsibility.
+
+## Do your own research
+
+None of this is financial, investment, legal, or tax advice. Understand the protocol and its risks,
+consider your own circumstances, and consult qualified professionals before using the Service. See
+the [Terms of Use](/terms) and [Privacy Policy](/privacy).
+
+<Card title="How no-loss works" icon="lightbulb" href="/how-it-works">
+  Read the mechanism behind principal protection and yield-funded prizes.
+</Card>
