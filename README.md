@@ -1,7 +1,7 @@
-# Goaly docs
+# Goaly — Docs
 
-Documentation for [Goaly](https://app.goaly.fun) — no-loss football predictions on Arbitrum.
-Built with [Mintlify](https://mintlify.com). Content lives in `*.mdx`; config in `docs.json`.
+Documentation for [Goaly](https://app.goaly.fun) — no-loss football prediction on Arbitrum. Built
+with [Mintlify](https://mintlify.com). Content lives in `*.mdx`; config in `docs.json`.
 
 ## Develop
 
